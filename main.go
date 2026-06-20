@@ -427,20 +427,6 @@ cancelRoomButton.addEventListener('click', () => {
   roomModal.classList.add('hidden');
 });
 
-avatarOptions.forEach((button, index) => {
-  button.addEventListener('click', () => {
-    avatarOptions.forEach(el => el.classList.remove('border-slate-900', 'ring-2', 'ring-slate-900'));
-    button.classList.add('border-slate-900', 'ring-2', 'ring-slate-900');
-    currentAvatar = button.dataset.avatar;
-    updateProfileDisplay();
-  });
-});
-
-if (avatarOptions.length > 0) {
-  avatarOptions[0].classList.add('border-slate-900', 'ring-2', 'ring-slate-900');
-  currentAvatar = avatarOptions[0].dataset.avatar;
-}
-
 openProfileButton.addEventListener('click', () => {
   profileModal.classList.remove('hidden');
   profileUsernameInput.value = currentUsername;
@@ -501,7 +487,7 @@ input.addEventListener('keydown', event => {
 const initial = parseQuery();
 roomInput.value = initial.room === 'global' ? '' : initial.room;
 passwordInput.value = initial.password;
-usernameInput.value = currentUsername;
+profileUsernameInput.value = currentUsername;
 updateProfileDisplay();
 connect(initial.room, initial.password);
 </script>
