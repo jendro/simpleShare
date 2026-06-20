@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -21,39 +23,81 @@ var upgrader = websocket.Upgrader{
 }
 
 type Hub struct {
-	clients map[*websocket.Conn]bool
-	mu      sync.Mutex
+	rooms     map[string]map[*websocket.Conn]bool
+	passwords map[string]string
+	connRoom  map[*websocket.Conn]string
+	mu        sync.Mutex
 }
 
 func newHub() *Hub {
-	return &Hub{clients: make(map[*websocket.Conn]bool)}
+	return &Hub{
+		rooms:     make(map[string]map[*websocket.Conn]bool),
+		passwords: make(map[string]string),
+		connRoom:  make(map[*websocket.Conn]string),
+	}
 }
 
-func (h *Hub) broadcast(message string) {
+func (h *Hub) broadcast(message, room string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	for conn := range h.clients {
+	for conn := range h.rooms[room] {
 		if err := conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
 			log.Printf("broadcast write error: %v", err)
 			conn.Close()
-			delete(h.clients, conn)
+			delete(h.rooms[room], conn)
+			delete(h.connRoom, conn)
 		}
 	}
 }
 
-func (h *Hub) addClient(conn *websocket.Conn) {
+func (h *Hub) addClient(conn *websocket.Conn, room string) {
 	h.mu.Lock()
-	h.clients[conn] = true
-	h.mu.Unlock()
+	defer h.mu.Unlock()
+	if oldRoom, ok := h.connRoom[conn]; ok && oldRoom != room {
+		if conns, ok := h.rooms[oldRoom]; ok {
+			delete(conns, conn)
+			if len(conns) == 0 {
+				delete(h.rooms, oldRoom)
+			}
+		}
+	}
+	if _, ok := h.rooms[room]; !ok {
+		h.rooms[room] = make(map[*websocket.Conn]bool)
+	}
+	h.rooms[room][conn] = true
+	h.connRoom[conn] = room
 }
 
 func (h *Hub) removeClient(conn *websocket.Conn) {
 	h.mu.Lock()
-	if _, ok := h.clients[conn]; ok {
-		conn.Close()
-		delete(h.clients, conn)
+	room, ok := h.connRoom[conn]
+	if ok {
+		if conns, ok := h.rooms[room]; ok {
+			delete(conns, conn)
+			if len(conns) == 0 {
+				delete(h.rooms, room)
+			}
+		}
+		delete(h.connRoom, conn)
 	}
 	h.mu.Unlock()
+	conn.Close()
+}
+
+func (h *Hub) ensureRoom(room, password string) error {
+	if room == "" {
+		room = "public"
+	}
+	if saved, ok := h.passwords[room]; ok {
+		if saved != password {
+			return errors.New("password room salah")
+		}
+		return nil
+	}
+	if password != "" {
+		h.passwords[room] = password
+	}
+	return nil
 }
 
 func main() {
@@ -66,12 +110,19 @@ func main() {
 	})
 
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		room, password := roomFromQuery(r)
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			log.Printf("upgrade: %v", err)
 			return
 		}
-		hub.addClient(conn)
+		if err := hub.ensureRoom(room, password); err != nil {
+			log.Printf("room auth failed: %v", err)
+			conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.ClosePolicyViolation, err.Error()))
+			conn.Close()
+			return
+		}
+		hub.addClient(conn, room)
 
 		for {
 			_, msg, err := conn.ReadMessage()
@@ -80,11 +131,19 @@ func main() {
 				hub.removeClient(conn)
 				break
 			}
-			message := string(msg)
-			if message == "" {
+
+			var payload struct {
+				Room    string `json:"room"`
+				Message string `json:"message"`
+			}
+			if err := json.Unmarshal(msg, &payload); err != nil {
+				log.Printf("json unmarshal: %v", err)
 				continue
 			}
-			hub.broadcast(message)
+			if payload.Message == "" {
+				continue
+			}
+			hub.broadcast(payload.Message, payload.Room)
 		}
 	})
 
@@ -92,6 +151,15 @@ func main() {
 	if err := http.ListenAndServe(*addr, nil); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func roomFromQuery(r *http.Request) (string, string) {
+	room := r.URL.Query().Get("room")
+	password := r.URL.Query().Get("password")
+	if room == "" {
+		room = "public"
+	}
+	return room, password
 }
 
 const indexHTML = `<!DOCTYPE html>
@@ -116,16 +184,26 @@ button:disabled { opacity: 0.5; cursor: default; }
 <body>
 <div class="container">
 <h1>Shared Text / JSON</h1>
-<p>Tempel teks, JSON, atau konten apa saja ke textarea, lalu tekan Enter untuk dibagikan ke semua perangkat yang terhubung.</p>
-<textarea id="input" placeholder="Tempel teks, JSON, atau apa saja lalu tekan Enter..."></textarea>
-<div class="status" id="status">Menunggu koneksi WebSocket...</div>
+<p>Tempel teks, JSON, atau konten apa saja ke textarea, lalu tekan Enter untuk dibagikan ke semua perangkat di room ini.</p>
+<div class="room-controls">
+  <input id="room" placeholder="Nama room (kosong = public)" />
+  <input id="password" type="password" placeholder="Password room (opsional)" />
+  <button id="joinButton" type="button">Join Room</button>
+</div>
+<textarea id="input" placeholder="Tempel teks, JSON, atau apa saja lalu tekan Enter..." disabled></textarea>
+<div class="status" id="status">Masukkan room dan tekan Join Room.</div>
 <div id="messages"></div>
 </div>
 <script>
+const roomInput = document.getElementById('room');
+const passwordInput = document.getElementById('password');
+const joinButton = document.getElementById('joinButton');
 const input = document.getElementById('input');
 const status = document.getElementById('status');
 const messages = document.getElementById('messages');
 let socket;
+let currentRoom = 'public';
+let currentPassword = '';
 
 function setStatus(text) {
   status.textContent = text;
@@ -153,11 +231,37 @@ async function copyToClipboard(text) {
   }
 }
 
-function connect() {
-  socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
-  socket.addEventListener('open', () => setStatus('Terhubung. Ketik JSON lalu Enter untuk membagikan.'));
-  socket.addEventListener('close', () => setStatus('Terputus. Memuat ulang dalam 2 detik...') || setTimeout(connect, 2000));
-  socket.addEventListener('error', () => setStatus('Gagal terhubung. Memuat ulang...') );
+function parseQuery() {
+  const url = new URL(window.location.href);
+  return {
+    room: url.searchParams.get('room') || 'public',
+    password: url.searchParams.get('password') || '',
+  };
+}
+
+function connect(room, password) {
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.close();
+  }
+
+  currentRoom = room || 'public';
+  currentPassword = password || '';
+  const params = '?room=' + encodeURIComponent(currentRoom) + '&password=' + encodeURIComponent(currentPassword);
+  socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws' + params);
+
+  socket.addEventListener('open', function () {
+    setStatus('Terhubung ke room \' + currentRoom + '\'. Ketik lalu Enter untuk membagikan.');
+    input.disabled = false;
+    input.focus();
+  });
+  socket.addEventListener('close', () => {
+    setStatus('Terputus. Tekan Join Room untuk mencoba lagi.');
+    input.disabled = true;
+  });
+  socket.addEventListener('error', () => {
+    setStatus('Gagal terhubung. Periksa nama room dan password.');
+    input.disabled = true;
+  });
   socket.addEventListener('message', event => addMessage(event.data));
 }
 
@@ -188,19 +292,30 @@ function addMessage(text) {
   messages.prepend(wrapper);
 }
 
+joinButton.addEventListener('click', () => {
+  const room = roomInput.value.trim() || 'public';
+  const password = passwordInput.value;
+  connect(room, password);
+});
+
 input.addEventListener('keydown', event => {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault();
     const text = input.value.trim();
-    if (!text || socket.readyState !== WebSocket.OPEN) {
+    if (!text || !socket || socket.readyState !== WebSocket.OPEN) {
       return;
     }
-    socket.send(text);
+    socket.send(JSON.stringify({ room: currentRoom, message: text }));
     input.value = '';
   }
 });
 
-connect();
+const initial = parseQuery();
+if (initial.room !== 'public' || initial.password !== '') {
+  roomInput.value = initial.room === 'public' ? '' : initial.room;
+  passwordInput.value = initial.password;
+  connect(initial.room, initial.password);
+}
 </script>
 </body>
 </html>`
