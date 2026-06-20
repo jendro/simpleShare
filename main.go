@@ -180,7 +180,13 @@ const indexHTML = `<!DOCTYPE html>
         <h1 class="text-2xl font-semibold">Shared Text / JSON</h1>
         <p class="text-sm text-slate-500 mt-1">Secara otomatis terhubung ke room default <strong>global</strong>. Klik tombol Room untuk membuat atau bergabung ke room privat.</p>
       </div>
-      <button id="openRoomButton" class="inline-flex items-center rounded-full bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800">Room</button>
+      <div class="flex items-center gap-3">
+        <div id="profileDisplay" class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 shadow-sm">
+          <span id="profileAvatar" class="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-900 text-lg text-white">👾</span>
+          <span id="profileName" class="font-medium">Guest</span>
+        </div>
+        <button id="openRoomButton" class="inline-flex items-center rounded-full bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800">Room</button>
+      </div>
     </div>
     <div class="p-6 space-y-4">
       <div class="flex flex-col gap-3">
@@ -247,6 +253,8 @@ const joinButton = document.getElementById('joinButton');
 const input = document.getElementById('input');
 const status = document.getElementById('status');
 const messages = document.getElementById('messages');
+const profileAvatar = document.getElementById('profileAvatar');
+const profileName = document.getElementById('profileName');
 let socket;
 let currentRoom = 'global';
 let currentPassword = '';
@@ -256,6 +264,11 @@ const avatarChoices = ['👾', '🧑‍💻', '🎮', '🤖', '🐉', '👻', '�
 
 function setStatus(text) {
   status.textContent = text;
+}
+
+function updateProfileDisplay() {
+  profileAvatar.textContent = currentAvatar;
+  profileName.textContent = currentUsername;
 }
 
 async function copyToClipboard(text) {
@@ -300,6 +313,7 @@ function connect(room, password) {
 
   socket.addEventListener('open', function () {
     setStatus('Terhubung ke room ' + currentRoom + '. Username: ' + currentUsername);
+    updateProfileDisplay();
     input.disabled = false;
     input.focus();
   });
@@ -396,6 +410,7 @@ avatarOptions.forEach((button, index) => {
     avatarOptions.forEach(el => el.classList.remove('border-slate-900', 'ring-2', 'ring-slate-900'));
     button.classList.add('border-slate-900', 'ring-2', 'ring-slate-900');
     currentAvatar = button.dataset.avatar;
+    updateProfileDisplay();
   });
 });
 
@@ -404,11 +419,21 @@ if (avatarOptions.length > 0) {
   currentAvatar = avatarOptions[0].dataset.avatar;
 }
 
+usernameInput.addEventListener('input', () => {
+  currentUsername = usernameInput.value.trim() || 'Guest';
+  updateProfileDisplay();
+});
+
 joinButton.addEventListener('click', () => {
   const room = roomInput.value.trim() || 'global';
   currentUsername = usernameInput.value.trim() || 'Guest';
   const password = passwordInput.value;
-  connect(room, password);
+  if (room === currentRoom && socket && socket.readyState === WebSocket.OPEN) {
+    updateProfileDisplay();
+    setStatus('Username/avatar diperbarui di room ' + currentRoom);
+  } else {
+    connect(room, password);
+  }
   roomModal.classList.add('hidden');
 });
 
@@ -427,6 +452,8 @@ input.addEventListener('keydown', event => {
 const initial = parseQuery();
 roomInput.value = initial.room === 'global' ? '' : initial.room;
 passwordInput.value = initial.password;
+usernameInput.value = currentUsername;
+updateProfileDisplay();
 connect(initial.room, initial.password);
 </script>
 </body>
