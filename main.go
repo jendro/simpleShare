@@ -181,10 +181,10 @@ const indexHTML = `<!DOCTYPE html>
         <p class="text-sm text-slate-500 mt-1">Secara otomatis terhubung ke room default <strong>global</strong>. Klik tombol Room untuk membuat atau bergabung ke room privat.</p>
       </div>
       <div class="flex items-center gap-3">
-        <div id="profileDisplay" class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 shadow-sm">
+        <button id="openProfileButton" class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 shadow-sm hover:border-slate-900">
           <span id="profileAvatar" class="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-900 text-lg text-white">👾</span>
           <span id="profileName" class="font-medium">Guest</span>
-        </div>
+        </button>
         <button id="openRoomButton" class="inline-flex items-center rounded-full bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800">Room</button>
       </div>
     </div>
@@ -213,23 +213,6 @@ const indexHTML = `<!DOCTYPE html>
         <input id="room" class="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200" placeholder="Contoh: project-a" />
       </div>
       <div>
-        <label class="block text-sm font-medium text-slate-700">Username</label>
-        <input id="username" class="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200" placeholder="Contoh: dev123" />
-      </div>
-      <div>
-        <label class="block text-sm font-medium text-slate-700">Pilih Avatar</label>
-        <div class="mt-2 grid grid-cols-4 gap-2" id="avatarOptions">
-          <button type="button" data-avatar="👾" class="avatarOption rounded-2xl border border-slate-300 bg-slate-50 p-3 text-2xl transition hover:border-slate-900">👾</button>
-          <button type="button" data-avatar="🧑‍💻" class="avatarOption rounded-2xl border border-slate-300 bg-slate-50 p-3 text-2xl transition hover:border-slate-900">🧑‍💻</button>
-          <button type="button" data-avatar="🎮" class="avatarOption rounded-2xl border border-slate-300 bg-slate-50 p-3 text-2xl transition hover:border-slate-900">🎮</button>
-          <button type="button" data-avatar="🤖" class="avatarOption rounded-2xl border border-slate-300 bg-slate-50 p-3 text-2xl transition hover:border-slate-900">🤖</button>
-          <button type="button" data-avatar="🐉" class="avatarOption rounded-2xl border border-slate-300 bg-slate-50 p-3 text-2xl transition hover:border-slate-900">🐉</button>
-          <button type="button" data-avatar="👻" class="avatarOption rounded-2xl border border-slate-300 bg-slate-50 p-3 text-2xl transition hover:border-slate-900">👻</button>
-          <button type="button" data-avatar="🦾" class="avatarOption rounded-2xl border border-slate-300 bg-slate-50 p-3 text-2xl transition hover:border-slate-900">🦾</button>
-          <button type="button" data-avatar="🧙" class="avatarOption rounded-2xl border border-slate-300 bg-slate-50 p-3 text-2xl transition hover:border-slate-900">🧙</button>
-        </div>
-      </div>
-      <div>
         <label class="block text-sm font-medium text-slate-700">Password (opsional)</label>
         <input id="password" type="password" class="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200" placeholder="Password room" />
       </div>
@@ -240,16 +223,56 @@ const indexHTML = `<!DOCTYPE html>
     </div>
   </div>
 </div>
+
+<div id="profileModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 px-4 py-6">
+  <div class="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-slate-200">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h2 class="text-lg font-semibold">Ubah Profil</h2>
+        <p class="text-sm text-slate-500">Ubah username dan avatar Anda tanpa mengganti room.</p>
+      </div>
+      <button id="closeProfileButton" class="text-slate-500 hover:text-slate-900">Tutup</button>
+    </div>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Username</label>
+        <input id="profileUsername" class="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200" placeholder="Contoh: dev123" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Pilih Avatar</label>
+        <div class="mt-2 grid grid-cols-4 gap-2" id="profileAvatarOptions">
+          <button type="button" data-avatar="👾" class="profileAvatarOption rounded-2xl border border-slate-300 bg-slate-50 p-3 text-2xl transition hover:border-slate-900">👾</button>
+          <button type="button" data-avatar="🧑‍💻" class="profileAvatarOption rounded-2xl border border-slate-300 bg-slate-50 p-3 text-2xl transition hover:border-slate-900">🧑‍💻</button>
+          <button type="button" data-avatar="🎮" class="profileAvatarOption rounded-2xl border border-slate-300 bg-slate-50 p-3 text-2xl transition hover:border-slate-900">🎮</button>
+          <button type="button" data-avatar="🤖" class="profileAvatarOption rounded-2xl border border-slate-300 bg-slate-50 p-3 text-2xl transition hover:border-slate-900">🤖</button>
+          <button type="button" data-avatar="🐉" class="profileAvatarOption rounded-2xl border border-slate-300 bg-slate-50 p-3 text-2xl transition hover:border-slate-900">🐉</button>
+          <button type="button" data-avatar="👻" class="profileAvatarOption rounded-2xl border border-slate-300 bg-slate-50 p-3 text-2xl transition hover:border-slate-900">👻</button>
+          <button type="button" data-avatar="🦾" class="profileAvatarOption rounded-2xl border border-slate-300 bg-slate-50 p-3 text-2xl transition hover:border-slate-900">🦾</button>
+          <button type="button" data-avatar="🧙" class="profileAvatarOption rounded-2xl border border-slate-300 bg-slate-50 p-3 text-2xl transition hover:border-slate-900">🧙</button>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3">
+        <button id="cancelProfileButton" class="rounded-2xl border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Batal</button>
+        <button id="saveProfileButton" class="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
 <script>
 const openRoomButton = document.getElementById('openRoomButton');
 const roomModal = document.getElementById('roomModal');
 const closeRoomButton = document.getElementById('closeRoomButton');
 const cancelRoomButton = document.getElementById('cancelRoomButton');
 const roomInput = document.getElementById('room');
-const usernameInput = document.getElementById('username');
 const passwordInput = document.getElementById('password');
-const avatarOptions = document.querySelectorAll('.avatarOption');
 const joinButton = document.getElementById('joinButton');
+const openProfileButton = document.getElementById('openProfileButton');
+const profileModal = document.getElementById('profileModal');
+const closeProfileButton = document.getElementById('closeProfileButton');
+const cancelProfileButton = document.getElementById('cancelProfileButton');
+const saveProfileButton = document.getElementById('saveProfileButton');
+const profileUsernameInput = document.getElementById('profileUsername');
+const profileAvatarOptions = document.querySelectorAll('.profileAvatarOption');
 const input = document.getElementById('input');
 const status = document.getElementById('status');
 const messages = document.getElementById('messages');
@@ -260,7 +283,6 @@ let currentRoom = 'global';
 let currentPassword = '';
 let currentUsername = 'Guest';
 let currentAvatar = '👾';
-const avatarChoices = ['👾', '🧑‍💻', '🎮', '🤖', '🐉', '👻', '🦾', '🧙'];
 
 function setStatus(text) {
   status.textContent = text;
@@ -419,21 +441,48 @@ if (avatarOptions.length > 0) {
   currentAvatar = avatarOptions[0].dataset.avatar;
 }
 
-usernameInput.addEventListener('input', () => {
-  currentUsername = usernameInput.value.trim() || 'Guest';
+openProfileButton.addEventListener('click', () => {
+  profileModal.classList.remove('hidden');
+  profileUsernameInput.value = currentUsername;
+  profileAvatarOptions.forEach(el => el.classList.remove('border-slate-900', 'ring-2', 'ring-slate-900'));
+  profileAvatarOptions.forEach(el => {
+    if (el.dataset.avatar === currentAvatar) {
+      el.classList.add('border-slate-900', 'ring-2', 'ring-slate-900');
+    }
+  });
+});
+
+closeProfileButton.addEventListener('click', () => {
+  profileModal.classList.add('hidden');
+});
+
+cancelProfileButton.addEventListener('click', () => {
+  profileModal.classList.add('hidden');
+});
+
+profileAvatarOptions.forEach(button => {
+  button.addEventListener('click', () => {
+    profileAvatarOptions.forEach(el => el.classList.remove('border-slate-900', 'ring-2', 'ring-slate-900'));
+    button.classList.add('border-slate-900', 'ring-2', 'ring-slate-900');
+    currentAvatar = button.dataset.avatar;
+  });
+});
+
+profileUsernameInput.addEventListener('input', () => {
+  currentUsername = profileUsernameInput.value.trim() || 'Guest';
   updateProfileDisplay();
+});
+
+saveProfileButton.addEventListener('click', () => {
+  currentUsername = profileUsernameInput.value.trim() || 'Guest';
+  updateProfileDisplay();
+  profileModal.classList.add('hidden');
 });
 
 joinButton.addEventListener('click', () => {
   const room = roomInput.value.trim() || 'global';
-  currentUsername = usernameInput.value.trim() || 'Guest';
   const password = passwordInput.value;
-  if (room === currentRoom && socket && socket.readyState === WebSocket.OPEN) {
-    updateProfileDisplay();
-    setStatus('Username/avatar diperbarui di room ' + currentRoom);
-  } else {
-    connect(room, password);
-  }
+  connect(room, password);
   roomModal.classList.add('hidden');
 });
 
