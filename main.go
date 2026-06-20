@@ -292,14 +292,16 @@ function connect(room, password) {
 
 function addMessage(text) {
   const wrapper = document.createElement('div');
-  wrapper.className = 'message';
+  wrapper.className = 'rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm';
 
   const pre = document.createElement('pre');
   pre.textContent = text;
+  pre.className = 'whitespace-pre-wrap break-words text-sm text-slate-900';
 
   const copyButton = document.createElement('button');
   copyButton.textContent = 'Copy';
   copyButton.type = 'button';
+  copyButton.className = 'mt-3 inline-flex items-center rounded-full bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-slate-800';
   copyButton.addEventListener('click', async () => {
     try {
       await copyToClipboard(text);
