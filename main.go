@@ -259,7 +259,7 @@ async function copyToClipboard(text) {
 function parseQuery() {
   const url = new URL(window.location.href);
   return {
-    room: url.searchParams.get('room') || 'public',
+    room: url.searchParams.get('room') || 'global',
     password: url.searchParams.get('password') || '',
   };
 }
@@ -275,7 +275,7 @@ function connect(room, password) {
   socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws' + params);
 
   socket.addEventListener('open', function () {
-    setStatus('Terhubung ke room \' + currentRoom + '\'. Ketik lalu Enter untuk membagikan.');
+    setStatus('Terhubung ke room ' + currentRoom + ". Ketik lalu Enter untuk membagikan.");
     input.disabled = false;
     input.focus();
   });
