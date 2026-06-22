@@ -181,6 +181,10 @@ const indexHTML = `<!DOCTYPE html>
         <p class="text-sm text-slate-500 mt-1">Secara otomatis terhubung ke room default <strong>global</strong>. Klik tombol Room untuk membuat atau bergabung ke room privat.</p>
       </div>
       <div class="flex items-center gap-3">
+        <button id="fileUploadButton" class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 shadow-sm hover:border-slate-900">
+          📎 File
+        </button>
+        <input id="fileInput" type="file" class="hidden" />
         <button id="openProfileButton" class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 shadow-sm hover:border-slate-900">
           <span id="profileAvatar" class="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-900 text-lg text-white">👾</span>
           <span id="profileName" class="font-medium">Guest</span>
@@ -274,6 +278,8 @@ const saveProfileButton = document.getElementById('saveProfileButton');
 const profileUsernameInput = document.getElementById('profileUsername');
 const profileAvatarOptions = document.querySelectorAll('.profileAvatarOption');
 const input = document.getElementById('input');
+const fileInput = document.getElementById('fileInput');
+const fileUploadButton = document.getElementById('fileUploadButton');
 const status = document.getElementById('status');
 const messages = document.getElementById('messages');
 const profileAvatar = document.getElementById('profileAvatar');
@@ -321,6 +327,31 @@ function parseQuery() {
     room: url.searchParams.get('room') || 'global',
     password: url.searchParams.get('password') || '',
   };
+}
+
+async function handleFileUpload(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file || !socket || socket.readyState !== WebSocket.OPEN) {
+    fileInput.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const dataUrl = reader.result;
+    socket.send(JSON.stringify({
+      room: currentRoom,
+      username: currentUsername,
+      avatar: currentAvatar,
+      fileName: file.name,
+      fileType: file.type || 'application/octet-stream',
+      fileSize: Math.round(file.size / 1024) + ' KB',
+      fileData: dataUrl,
+    }));
+    setStatus('Mengirim file ' + file.name + '...');
+    fileInput.value = '';
+  };
+  reader.readAsDataURL(file);
 }
 
 function connect(room, password) {
@@ -427,6 +458,27 @@ function addMessage(text) {
   wrapper.appendChild(header);
   wrapper.appendChild(content);
 
+  if (payload.fileName && payload.fileData) {
+    const fileWrapper = document.createElement('div');
+    fileWrapper.className = 'mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4';
+
+    const fileTitle = document.createElement('div');
+    fileTitle.className = 'mb-2 text-sm font-semibold text-slate-900';
+    fileTitle.textContent = 'File dibagikan:';
+
+    const fileLink = document.createElement('a');
+    fileLink.href = payload.fileData;
+    fileLink.download = payload.fileName;
+    fileLink.target = '_blank';
+    fileLink.rel = 'noreferrer noopener';
+    fileLink.className = 'text-sm text-slate-700 underline hover:text-slate-900';
+    fileLink.textContent = payload.fileName + (payload.fileSize ? ' (' + payload.fileSize + ')' : '');
+
+    fileWrapper.appendChild(fileTitle);
+    fileWrapper.appendChild(fileLink);
+    wrapper.appendChild(fileWrapper);
+  }
+
   let expandButton;
   messages.prepend(wrapper);
 
@@ -529,6 +581,9 @@ input.addEventListener('keydown', event => {
     input.value = '';
   }
 });
+
+fileUploadButton.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', handleFileUpload);
 
 const initial = parseQuery();
 roomInput.value = initial.room === 'global' ? '' : initial.room;
