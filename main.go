@@ -181,10 +181,6 @@ const indexHTML = `<!DOCTYPE html>
         <p class="text-sm text-slate-500 mt-1">Secara otomatis terhubung ke room default <strong>global</strong>. Klik tombol Room untuk membuat atau bergabung ke room privat.</p>
       </div>
       <div class="flex items-center gap-3">
-        <button id="fileUploadButton" class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 shadow-sm hover:border-slate-900">
-          📎 File
-        </button>
-        <input id="fileInput" type="file" class="hidden" />
         <button id="openProfileButton" class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 shadow-sm hover:border-slate-900">
           <span id="profileAvatar" class="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-900 text-lg text-white">👾</span>
           <span id="profileName" class="font-medium">Guest</span>
@@ -194,7 +190,9 @@ const indexHTML = `<!DOCTYPE html>
     </div>
     <div class="p-6 space-y-4">
       <div class="flex flex-col gap-3">
-        <textarea id="input" class="min-h-[220px] w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm font-mono text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200" placeholder="Tempel teks, JSON, atau apa saja lalu tekan Enter..." disabled></textarea>
+        <textarea id="input" class="min-h-[220px] w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm font-mono text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200" placeholder="Tempel teks, JSON, atau seret file ke sini lalu tekan Enter..." disabled></textarea>
+        <input id="fileInput" type="file" class="hidden" />
+        <div id="filePreview" class="hidden items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"></div>
         <div class="text-sm text-slate-500" id="status">Memuat room global...</div>
       </div>
       <div id="messages" class="grid gap-4"></div>
@@ -279,7 +277,7 @@ const profileUsernameInput = document.getElementById('profileUsername');
 const profileAvatarOptions = document.querySelectorAll('.profileAvatarOption');
 const input = document.getElementById('input');
 const fileInput = document.getElementById('fileInput');
-const fileUploadButton = document.getElementById('fileUploadButton');
+const filePreview = document.getElementById('filePreview');
 const status = document.getElementById('status');
 const messages = document.getElementById('messages');
 const profileAvatar = document.getElementById('profileAvatar');
@@ -329,29 +327,53 @@ function parseQuery() {
   };
 }
 
-async function handleFileUpload(event) {
-  const file = event.target.files && event.target.files[0];
-  if (!file || !socket || socket.readyState !== WebSocket.OPEN) {
-    fileInput.value = '';
+let pendingFile = null;
+
+function showFilePreview(file) {
+  filePreview.classList.remove('hidden');
+  filePreview.innerHTML = '';
+  const fileText = document.createElement('div');
+  fileText.className = 'flex-1 overflow-hidden text-ellipsis whitespace-nowrap';
+  fileText.textContent = '📎 ' + file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+
+  const removeButton = document.createElement('button');
+  removeButton.type = 'button';
+  removeButton.className = 'rounded-full border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-100';
+  removeButton.textContent = 'Hapus';
+  removeButton.addEventListener('click', () => {
+    clearPendingFile();
+  });
+
+  filePreview.appendChild(fileText);
+  filePreview.appendChild(removeButton);
+}
+
+function clearPendingFile() {
+  pendingFile = null;
+  filePreview.classList.add('hidden');
+  filePreview.innerHTML = '';
+  fileInput.value = '';
+}
+
+function setPendingFile(file) {
+  pendingFile = file;
+  showFilePreview(file);
+}
+
+function handleFileSelection(file) {
+  if (!file) {
     return;
   }
+  setPendingFile(file);
+}
 
-  const reader = new FileReader();
-  reader.onload = () => {
-    const dataUrl = reader.result;
-    socket.send(JSON.stringify({
-      room: currentRoom,
-      username: currentUsername,
-      avatar: currentAvatar,
-      fileName: file.name,
-      fileType: file.type || 'application/octet-stream',
-      fileSize: Math.round(file.size / 1024) + ' KB',
-      fileData: dataUrl,
-    }));
-    setStatus('Mengirim file ' + file.name + '...');
-    fileInput.value = '';
-  };
-  reader.readAsDataURL(file);
+function handleDrop(event) {
+  event.preventDefault();
+  const file = event.dataTransfer.files && event.dataTransfer.files[0];
+  if (file) {
+    handleFileSelection(file);
+    setStatus('File siap dikirim: ' + file.name + '. Tekan Enter untuk kirim.');
+  }
 }
 
 function connect(room, password) {
@@ -574,7 +596,32 @@ input.addEventListener('keydown', event => {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault();
     const text = input.value.trim();
-    if (!text || !socket || socket.readyState !== WebSocket.OPEN) {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    if (pendingFile) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        socket.send(JSON.stringify({
+          room: currentRoom,
+          message: text,
+          username: currentUsername,
+          avatar: currentAvatar,
+          fileName: pendingFile.name,
+          fileType: pendingFile.type || 'application/octet-stream',
+          fileSize: Math.round(pendingFile.size / 1024) + ' KB',
+          fileData: reader.result,
+        }));
+        setStatus('File dikirim: ' + pendingFile.name);
+        clearPendingFile();
+        input.value = '';
+      };
+      reader.readAsDataURL(pendingFile);
+      return;
+    }
+
+    if (!text) {
       return;
     }
     socket.send(JSON.stringify({ room: currentRoom, message: text, username: currentUsername, avatar: currentAvatar }));
@@ -582,8 +629,18 @@ input.addEventListener('keydown', event => {
   }
 });
 
-fileUploadButton.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', handleFileUpload);
+fileInput.addEventListener('change', event => handleFileSelection(event.target.files && event.target.files[0]));
+input.addEventListener('dragover', event => {
+  event.preventDefault();
+  input.classList.add('border-slate-900');
+});
+input.addEventListener('dragleave', () => {
+  input.classList.remove('border-slate-900');
+});
+input.addEventListener('drop', event => {
+  input.classList.remove('border-slate-900');
+  handleDrop(event);
+});
 
 const initial = parseQuery();
 roomInput.value = initial.room === 'global' ? '' : initial.room;
