@@ -407,13 +407,16 @@ function addMessage(text) {
   header.appendChild(copyButton);
 
   const content = document.createElement('div');
-  content.className = 'relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-4';
+  content.className = 'mt-3 relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-4 max-w-full';
   content.style.maxHeight = '200px';
 
   const pre = document.createElement('pre');
   pre.textContent = payload.message || text;
-  pre.className = 'text-sm text-slate-700 whitespace-pre-wrap break-words';
+  pre.className = 'text-sm text-slate-700 whitespace-pre-wrap break-words break-all';
   pre.style.margin = 0;
+  pre.style.width = '100%';
+  pre.style.overflowWrap = 'anywhere';
+  pre.style.wordBreak = 'break-word';
 
   const fade = document.createElement('div');
   fade.className = 'pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent';
