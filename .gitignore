@@ -1,5 +1,7 @@
 # Ignore temporary build output and local scratch
 /tmp/
+main
+sharedJson
 *.log
 *.out
 *.exe
