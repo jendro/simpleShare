@@ -15,10 +15,11 @@ Aplikasi sederhana untuk berbagi teks, JSON, atau konten apa pun antar perangkat
    ```bash
    cd /path/ke/sharedJson
    ```
-3. Jalankan server lokal:
+3. Jalankan server lokal dari root paket:
    ```bash
-   go run main.go
+   go run .
    ```
+   > `go run main.go` tidak akan bekerja karena aplikasi terdiri dari beberapa file Go.
 4. Buka browser dan kunjungi:
    ```
    http://localhost:8080
